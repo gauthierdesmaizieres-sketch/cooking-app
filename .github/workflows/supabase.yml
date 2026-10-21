@@ -44,6 +44,7 @@ jobs:
             mailer_subjects_magic_link: "Ton code de connexion", mailer_templates_magic_link_content: $tpl,
             mailer_subjects_confirmation: "Ton code de connexion", mailer_templates_confirmation_content: $tpl
           }' > auth.json
-          curl -sSf -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @auth.json > /dev/null
+          code=$(curl -sS -o resp.json -w '%{http_code}' -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @auth.json)
+          if [ "$code" -ge 300 ]; then echo "::error::Supabase auth config refused ($code): $(cat resp.json)"; exit 1; fi
           echo "Site URL set to $SITE_URL, code email templates applied"
