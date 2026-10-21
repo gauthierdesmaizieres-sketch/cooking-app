@@ -107,6 +107,11 @@ export async function signIn(email) {
   must(await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } })) // app may live under a sub-path (GitHub Pages)
 }
 
+// type 'email' covers both the first sign-up code and later sign-in codes
+export async function verifyCode(email, token) {
+  must(await supabase.auth.verifyOtp({ email, token, type: 'email' }))
+}
+
 export async function signOut() {
   await supabase.auth.signOut()
 }

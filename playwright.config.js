@@ -11,6 +11,7 @@ process.env.MAILPIT_URL = status.MAILPIT_URL
 export default defineConfig({
   testDir: 'e2e',
   timeout: 30_000,
+  expect: { timeout: 10_000 }, // 5 s default was flaky with 2 workers on the 3000-food base
   retries: 0,
   workers: 2,
   use: {
