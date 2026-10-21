@@ -44,7 +44,11 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
-    return () => data.subscription.unsubscribe()
+    // The email link may have been opened elsewhere (Gmail's browser): re-read the stored session on return.
+    const back = () => document.visibilityState === 'visible' &&
+      supabase.auth.getSession().then(({ data: d }) => setSession(s => (s?.access_token === d.session?.access_token ? s : d.session)))
+    document.addEventListener('visibilitychange', back)
+    return () => { data.subscription.unsubscribe(); document.removeEventListener('visibilitychange', back) }
   }, [])
   const uid = session?.user.id
   useEffect(() => {

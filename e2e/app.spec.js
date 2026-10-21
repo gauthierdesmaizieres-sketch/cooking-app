@@ -18,50 +18,54 @@ test.describe('A connexion', () => {
   test('A-E1 invalid email keeps the button disabled', async ({ page }) => {
     await page.goto('/')
     await page.getByLabel('E-mail').fill('abc')
-    await expect(page.getByRole('button', { name: 'Recevoir un code' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Recevoir le lien' })).toBeDisabled()
   })
 
-  async function lastMail(email) {
-    let msg
+  async function lastLink(email) {
+    let link
     await expect.poll(async () => {
       const list = await (await fetch(`${process.env.MAILPIT_URL}/api/v1/search?query=to:${encodeURIComponent(email)}`)).json()
       if (!list.messages?.length) return null
-      msg = await (await fetch(`${process.env.MAILPIT_URL}/api/v1/message/${list.messages[0].ID}`)).json()
-      return msg
+      const msg = await (await fetch(`${process.env.MAILPIT_URL}/api/v1/message/${list.messages[0].ID}`)).json()
+      link = msg.HTML.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&')
+      return link
     }, { timeout: 10_000 }).toBeTruthy()
-    return { code: msg.Text.match(/\b(\d{6,10})\b/)[1], link: msg.HTML.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&') }
+    return link
   }
 
-  test('A-H1 sign in with the emailed code (any browser)', async ({ page, allow }) => {
-    allow(/403/) // the wrong code typed on purpose below
-    const email = `link-${Date.now()}@example.com`
+  async function askLink(page) {
+    const email = `link-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`
     await page.goto('/')
     await page.getByLabel('E-mail').fill(email)
-    await page.getByRole('button', { name: 'Recevoir un code' }).click()
+    await page.getByRole('button', { name: 'Recevoir le lien' }).click()
     await expect(page.getByRole('heading', { name: 'Regarde tes e-mails' })).toBeVisible()
+    return lastLink(email)
+  }
+
+  test('A-H1 the email link signs in', async ({ page }) => {
+    const link = await askLink(page)
     await a11y(page)
-    const { code } = await lastMail(email)
-    await page.getByLabel('Code reçu par e-mail').fill('000000')
-    await page.getByRole('button', { name: 'Me connecter' }).click()
-    await expect(page.getByText('Code incorrect ou expiré')).toBeVisible()
-    await page.reload() // e.g. the app was killed while reading the email: we stay on the code step
-    await page.getByLabel('Code reçu par e-mail').fill(code)
-    await page.getByRole('button', { name: 'Me connecter' }).click()
+    await page.goto(link)
     await expect(page.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible() // new account -> onboarding
   })
 
-  test('A-E2 email link opened in another browser explains to use the code', async ({ page, browser, allow }) => {
-    allow(/40\d/) // the PKCE exchange fails on purpose in the second browser
-    const email = `link-${Date.now()}@example.com`
-    await page.goto('/')
-    await page.getByLabel('E-mail').fill(email)
-    await page.getByRole('button', { name: 'Recevoir un code' }).click()
-    const { link } = await lastMail(email)
-    const other = await browser.newContext({ viewport: { width: 390, height: 844 } }) // like Gmail's in-app browser
+  test('A-E2 the link works in another browser than the one that asked (Gmail in-app browser)', async ({ page, browser }) => {
+    const link = await askLink(page)
+    const other = await browser.newContext({ viewport: { width: 390, height: 844 } })
     const p2 = await other.newPage()
     await p2.goto(link)
-    await expect(p2.getByRole('heading', { name: 'Ton journal repas' })).toBeVisible()
-    await expect(p2.getByText(/tape le code à 6 chiffres/)).toBeVisible()
+    await expect(p2.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible()
+    await other.close()
+  })
+
+  test('A-E3 a used link explains what to do', async ({ page, browser }) => {
+    const link = await askLink(page)
+    await page.goto(link)
+    await expect(page.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible()
+    const other = await browser.newContext({ viewport: { width: 390, height: 844 } })
+    const p2 = await other.newPage()
+    await p2.goto(link) // second use of a one-time link
+    await expect(p2.getByText('Ce lien a expiré ou a déjà servi')).toBeVisible()
     await other.close()
   })
 })

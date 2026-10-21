@@ -245,16 +245,7 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # Uncomment to customize email template
-# Sign-in (magic_link) and first sign-up (confirmation) emails carry the 6-digit code; prod gets the same
-# template from .github/workflows/supabase.yml.
-[auth.email.template.magic_link]
-subject = "Ton code de connexion"
-content_path = "./supabase/templates/code.html"
-
-[auth.email.template.confirmation]
-subject = "Ton code de connexion"
-content_path = "./supabase/templates/code.html"
-
+# (default templates kept: the free hosted plan refuses custom ones without your own SMTP)
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"

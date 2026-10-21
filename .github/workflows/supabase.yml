@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**', 'supabase/functions/**', 'supabase/templates/**', '.github/workflows/supabase.yml']
+    paths: ['supabase/migrations/**', 'supabase/functions/**', '.github/workflows/supabase.yml']
 concurrency: { group: supabase, cancel-in-progress: false }
 jobs:
   deploy:
@@ -37,14 +37,11 @@ jobs:
         run: |
           [ -n "$GEMINI_API_KEY" ] || { echo "::error::GEMINI_API_KEY is not set"; exit 1; }
           supabase secrets set --project-ref "$REF" GEMINI_API_KEY="$GEMINI_API_KEY" AI_PROVIDER=gemini
-      - name: Auth -> Pages site URL, emails with the sign-in code
+      - name: Auth -> Pages site URL
         run: |
-          jq -n --arg url "$SITE_URL" --rawfile tpl supabase/templates/code.html '{
-            site_url: $url, uri_allow_list: $url,
-            mailer_subjects_magic_link: "Ton code de connexion", mailer_templates_magic_link_content: $tpl,
-            mailer_subjects_confirmation: "Ton code de connexion", mailer_templates_confirmation_content: $tpl
-          }' > auth.json
+          # Email templates stay Supabase's defaults: the free plan refuses custom ones without your own SMTP.
+          jq -n --arg url "$SITE_URL" '{ site_url: $url, uri_allow_list: $url }' > auth.json
           code=$(curl -sS -o resp.json -w '%{http_code}' -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @auth.json)
           if [ "$code" -ge 300 ]; then echo "::error::Supabase auth config refused ($code): $(cat resp.json)"; exit 1; fi
-          echo "Site URL set to $SITE_URL, code email templates applied"
+          echo "Site URL set to $SITE_URL"
