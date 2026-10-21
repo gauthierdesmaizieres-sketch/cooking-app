@@ -1,0 +1,6 @@
+{
+  "_about": "Names, domains of the apps studied in recon. The sweep must find none of them outside replica/. Colours not listed: never measured from the originals (no screenshots), our palette is our own placeholder.",
+  "avoid": ["Yazio", "MyFitnessPal", "Under Armour"],
+  "domains": ["yazio.com", "myfitnesspal.com"],
+  "colors": []
+}

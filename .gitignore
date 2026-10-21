@@ -1,0 +1,9 @@
+node_modules
+dist
+.claude/settings.local.json
+supabase/.temp
+supabase/functions/.env
+.env*
+!.env.example
+test-results
+playwright-report

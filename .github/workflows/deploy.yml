@@ -1,0 +1,41 @@
+# Builds the PWA and publishes it on GitHub Pages at each push to main.
+# Uses the same settings as supabase.yml: variable SUPABASE_PROJECT_REF, secret SUPABASE_ACCESS_TOKEN.
+# The public (anon) key is read from the Supabase API at build time: it is public by design, RLS protects the data.
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - name: Supabase URL and public key
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          key=$(curl -sSf "https://api.supabase.com/v1/projects/$REF/api-keys" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"             | jq -r '.[] | select(.name == "anon") | .api_key')
+          [ -n "$key" ] || { echo "::error::could not read the anon key: check SUPABASE_PROJECT_REF and SUPABASE_ACCESS_TOKEN"; exit 1; }
+          echo "VITE_SUPABASE_URL=https://$REF.supabase.co" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_ANON_KEY=$key" >> "$GITHUB_ENV"
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.d.outputs.page_url }}' }
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4

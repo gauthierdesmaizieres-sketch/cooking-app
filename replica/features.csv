@@ -1,0 +1,42 @@
+feature,area,priority,original,clone,notes
+Sign up / login (email or Apple/Google),onboarding,must,yes,partial,lien e-mail fait; Google/Apple: apps développeur à créer
+Questionnaire profil (sexe âge taille poids activité),onboarding,must,yes,yes,"S01–S02, 4 étapes; métrique seulement"
+Calcul objectif kcal + macros,onboarding,must,yes,yes,"S03 Mifflin-St Jeor, -500/+300, plancher 1200–1500, pas de perte avant 18 ans, cible IMC ≥ 18,5; modifiable depuis le profil"
+Journal du jour par repas (petit-déj déj dîner snack),diary,must,yes,yes,S05
+Anneau kcal restantes + barres macros,diary,must,yes,yes,S05
+Naviguer entre les jours,diary,must,yes,yes,S05
+Rechercher un aliment,logging,must,yes,yes,"3158 aliments Ciqual 2025 + cache Open Food Facts; recherche par mots sans accents, repli flou"
+Récents et favoris,logging,must,yes,yes,"S06 favoris + récents (dernière quantité, kcal)"
+Choisir portion et quantité (g / portion / pièce),logging,must,yes,yes,S10 grammes ou portions enregistrées
+Scanner un code-barres,logging,must,yes,partial,S07 caméra (BarcodeDetector natif ou ZXing) + saisie manuelle; Open Food Facts testé; scan caméra non testé sur téléphone
+Photo d'un plat -> aliments + grammes + kcal estimés (IA),logging,must,yes,yes,"Gemini gemini-3.6-flash (repli 3.5-flash-lite), ~15-35 s en offre gratuite; Claude via AI_PROVIDER"
+Écran de correction avant log du scan photo,logging,must,yes,yes,"S09: grammes, repas, retirer, remplacer par un aliment de la base, ajouter un oubli"
+Créer un aliment perso,logging,must,yes,yes,S11 + portion habituelle; aussi depuis code-barres inconnu
+Créer mon plat (photo ingrédients portions -> kcal/portion),recipes,must,yes,yes,"S15; ingrédients depuis la base, sauvegarde atomique (save_recipe)"
+Ajouter un plat/recette au journal,recipes,must,yes,yes,"S13, portions décimales"
+Modifier / supprimer une entrée du journal,diary,must,yes,yes,"quantité et repas, nutriments recalculés au prorata; suppression + annuler"
+Détail recette avec recalcul selon nb de portions,recipes,should,yes,yes,S13
+Mode cuisine étape par étape (écran allumé + timer),recipes,should,yes,partial,S14 étapes + écran allumé (Wake Lock); pas de minuteur
+Recherche et filtres recettes (vegan low carb temps),recipes,should,yes,yes,S12 sur mes plats
+Import recette depuis une URL,recipes,should,yes,no,S16 MFP; parser schema.org Recipe
+Créer un plat à partir du scan photo,recipes,should,no,no,idée à nous: photo -> plat réutilisable
+Label nutritionnel complet (fibres sucres sel),logging,should,yes,yes,S10
+Suivi du poids + courbe,progress,should,yes,no,S18
+Tracker d'eau,diary,should,yes,no,
+Copier un repas d'un autre jour,diary,should,yes,no,
+Rappels de repas (notifications),notifications,should,yes,no,sans spam (plainte utilisateurs)
+Mode hors ligne du journal,diary,should,yes,no,sync quand réseau
+Export des données (CSV),settings,should,partial,no,les users exportent Yazio via outils tiers
+Liste de courses depuis recettes,recipes,could,yes,no,S17
+Catalogue de recettes maison,recipes,could,yes,no,pas de contenu écrit; S12 ne montre que mes plats
+Plans de repas générés selon objectif,recipes,could,yes,no,PRO Yazio / Premium+ MFP
+Sync Apple Health / Health Connect (pas activité),integrations,could,yes,no,API officielles
+Saisie vocale d'un repas,logging,could,yes,no,MFP Premium
+Photo du frigo -> idées de plats,recipes,could,yes,no,MFP AI Coach 26.40
+Jeûne intermittent (16:8 5:2),fasting,could,yes,no,hors slice v1
+Abonnement / paywall,billing,could,yes,no,seulement si on vend
+Base de 4M/20M aliments propriétaire,data,skip,yes,skip,données qu'ils possèdent; utiliser Open Food Facts/CIQUAL
+Catalogue 2900 recettes + photos YAZIO,data,skip,yes,skip,contenu protégé
+Communauté / forums MFP,community,skip,yes,skip,le réseau n'est pas clonable
+Livraison de courses intégrée,integrations,skip,yes,skip,partenariat commercial
+Suivi GLP-1 / conseils médicaux,health,skip,yes,skip,zone réglementée
