@@ -168,6 +168,38 @@ test.describe('F01 photo', () => {
     await expect(page.getByRole('button', { name: 'Analyser le plat' })).toBeEnabled()
   })
 
+  test('F01-N5 access code asked once, sent with the analysis, remembered', async ({ page, allow }) => {
+    allow(/403|scan-photo/)
+    const items = PLATE()
+    const sent = []
+    await page.route('**/functions/v1/scan-photo', async route => {
+      const code = route.request().headers()['x-app-code'] ?? ''
+      sent.push(code)
+      if (code !== 'mon-code') return route.fulfill({ status: 403, json: { error: 'code' }, headers: { 'Access-Control-Allow-Origin': '*' } })
+      const { data } = await admin().from('photo_scans')
+        .insert({ user_id: user.id, photo_path: `${user.id}/mock.jpg`, model: 'mock', status: 'done', detected: items }).select('id').single()
+      await route.fulfill({ json: { scan_id: data.id, items }, headers: { 'Access-Control-Allow-Origin': '*' } })
+    })
+    await page.goto('/#/scan/lunch')
+    await page.locator('input[type=file][capture]').setInputFiles({ name: 'plat.png', mimeType: 'image/png', buffer: PNG })
+    await page.getByRole('button', { name: 'Analyser le plat' }).click()
+    await expect(page.getByLabel("Code d'accès")).toBeVisible()
+    await a11y(page)
+    await page.getByLabel("Code d'accès").fill('faux')
+    await page.getByRole('button', { name: 'Valider et analyser' }).click()
+    await expect(page.getByText("Code d'accès incorrect")).toBeVisible()
+    await page.getByLabel("Code d'accès").fill('mon-code')
+    await page.getByRole('button', { name: 'Valider et analyser' }).click()
+    await expect(page.getByRole('heading', { name: 'Vérifie le résultat' })).toBeVisible()
+    expect(sent).toEqual(['', 'faux', 'mon-code'])
+    // next scan: no question asked, the code is remembered on this phone
+    await page.goto('/#/scan/lunch')
+    await page.locator('input[type=file][capture]').setInputFiles({ name: 'plat.png', mimeType: 'image/png', buffer: PNG })
+    await page.getByRole('button', { name: 'Analyser le plat' }).click()
+    await expect(page.getByRole('heading', { name: 'Vérifie le résultat' })).toBeVisible()
+    expect(sent.at(-1)).toBe('mon-code')
+  })
+
   test('F01-N3 daily limit message', async ({ page, allow }) => {
     allow(/429|scan-photo/)
     await page.route('**/functions/v1/scan-photo', r => r.fulfill({ status: 429, json: { error: 'limit' }, headers: { 'Access-Control-Allow-Origin': '*' } }))

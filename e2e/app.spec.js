@@ -1,5 +1,5 @@
-// Connexion (A), journal (D), recherche (F03), profil (P).
-import { a11y, admin, cleanupUsers, diaryRows, expect, localDay, loginAs, newUser, test } from './helpers.js'
+// Compte invisible (A), journal (D), recherche (F03), profil (P).
+import { a11y, admin, cleanupUsers, diaryRows, expect, localDay, loginAs, newUser, sessionUserId, test, track } from './helpers.js'
 
 async function seedEntry(user, label = 'Pomme', kcal = 78) {
   const { error } = await admin().from('diary_entries').insert({
@@ -8,64 +8,30 @@ async function seedEntry(user, label = 'Pomme', kcal = 78) {
   if (error) throw error
 }
 
-test.describe('A connexion', () => {
-  test('A-N1 no session shows the login screen', async ({ page }) => {
+test.describe('A compte invisible', () => {
+  test('A-H1 first launch creates an account without email and keeps it', async ({ page }) => {
     await page.goto('/#/diary')
-    await expect(page.getByRole('heading', { name: 'Ton journal repas' })).toBeVisible()
-    await a11y(page)
-  })
-
-  test('A-E1 invalid email keeps the button disabled', async ({ page }) => {
-    await page.goto('/')
-    await page.getByLabel('E-mail').fill('abc')
-    await expect(page.getByRole('button', { name: 'Recevoir le lien' })).toBeDisabled()
-  })
-
-  async function lastLink(email) {
-    let link
-    await expect.poll(async () => {
-      const list = await (await fetch(`${process.env.MAILPIT_URL}/api/v1/search?query=to:${encodeURIComponent(email)}`)).json()
-      if (!list.messages?.length) return null
-      const msg = await (await fetch(`${process.env.MAILPIT_URL}/api/v1/message/${list.messages[0].ID}`)).json()
-      link = msg.HTML.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&')
-      return link
-    }, { timeout: 10_000 }).toBeTruthy()
-    return link
-  }
-
-  async function askLink(page) {
-    const email = `link-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`
-    await page.goto('/')
-    await page.getByLabel('E-mail').fill(email)
-    await page.getByRole('button', { name: 'Recevoir le lien' }).click()
-    await expect(page.getByRole('heading', { name: 'Regarde tes e-mails' })).toBeVisible()
-    return lastLink(email)
-  }
-
-  test('A-H1 the email link signs in', async ({ page }) => {
-    const link = await askLink(page)
-    await a11y(page)
-    await page.goto(link)
     await expect(page.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible() // new account -> onboarding
+    const id = await sessionUserId(page)
+    expect(id).toBeTruthy()
+    track(id)
+    const { data } = await admin().auth.admin.getUserById(id)
+    expect(data.user.is_anonymous).toBe(true)
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible()
+    expect(await sessionUserId(page)).toBe(id) // same account after a reload, no new one
   })
 
-  test('A-E2 the link works in another browser than the one that asked (Gmail in-app browser)', async ({ page, browser }) => {
-    const link = await askLink(page)
-    const other = await browser.newContext({ viewport: { width: 390, height: 844 } })
-    const p2 = await other.newPage()
-    await p2.goto(link)
-    await expect(p2.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible()
-    await other.close()
-  })
-
-  test('A-E3 a used link explains what to do', async ({ page, browser }) => {
-    const link = await askLink(page)
-    await page.goto(link)
+  test('A-E1 two phones get two separate accounts', async ({ page, browser }) => {
+    await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible()
     const other = await browser.newContext({ viewport: { width: 390, height: 844 } })
     const p2 = await other.newPage()
-    await p2.goto(link) // second use of a one-time link
-    await expect(p2.getByText('Ce lien a expiré ou a déjà servi')).toBeVisible()
+    await p2.goto('/')
+    await expect(p2.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible()
+    const [a, b] = [await sessionUserId(page), await sessionUserId(p2)]
+    track(a); track(b)
+    expect(a).not.toBe(b)
     await other.close()
   })
 })
@@ -150,12 +116,12 @@ test.describe('F03 recherche', () => {
 })
 
 test.describe('P profil', () => {
-  test('P-H1 sign out', async ({ page }) => {
+  test('P-H1 profile explains the phone-bound account, no sign-out', async ({ page }) => {
     await loginAs(page, await newUser('profile'))
     await page.goto('/#/profile')
+    await expect(page.getByText('Il est lié à ce navigateur')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Se déconnecter' })).toHaveCount(0)
     await a11y(page)
-    await page.getByRole('button', { name: 'Se déconnecter' }).click()
-    await expect(page.getByRole('heading', { name: 'Ton journal repas' })).toBeVisible()
   })
 
   test('P-H2 delete account removes everything', async ({ page, allow }) => {
@@ -169,7 +135,8 @@ test.describe('P profil', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await a11y(page)
     await page.getByRole('button', { name: 'Supprimer définitivement' }).click()
-    await expect(page.getByRole('heading', { name: 'Ton journal repas' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Quel est ton objectif ?' })).toBeVisible() // a fresh empty account
+    track(await sessionUserId(page))
     const { data: u } = await admin().auth.admin.getUserById(user.id)
     expect(u.user).toBeNull()
     expect(await diaryRows(user.id)).toHaveLength(0)

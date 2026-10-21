@@ -1,9 +1,9 @@
 // S08 Scan photo IA
 import { useEffect, useRef, useState } from 'react'
 import { Camera, ImagePlus } from 'lucide-react'
-import { Button } from '../ui.jsx'
+import { Button, TextField } from '../ui.jsx'
 import { mealLabel } from '../lib.js'
-import { scanPhoto } from '../data.js'
+import { getAccessCode, scanPhoto, setAccessCode } from '../data.js'
 import { go } from '../App.jsx'
 import TopBar from './TopBar.jsx'
 
@@ -23,6 +23,8 @@ export default function ScanPhoto({ meal, q }) {
   const [preview, setPreview] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [askCode, setAskCode] = useState(false) // server said the access code is missing or wrong
+  const [code, setCode] = useState(getAccessCode)
 
   useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview])
 
@@ -43,9 +45,20 @@ export default function ScanPhoto({ meal, q }) {
       const { scan_id } = await scanPhoto(file)
       go(`/review/${scan_id}?meal=${meal}&day=${day}`)
     } catch (e) {
-      setError(ERRORS[e.message] ?? ERRORS.network)
+      if (e.message === 'code') {
+        setAskCode(true)
+        setError(getAccessCode() ? "Code d'accès incorrect." : null)
+      } else setError(ERRORS[e.message] ?? ERRORS.network)
       setBusy(false)
     }
+  }
+
+  function saveCode(e) {
+    e.preventDefault()
+    if (!code.trim()) return
+    setAccessCode(code.trim())
+    setAskCode(false)
+    analyse()
   }
 
   return (
@@ -66,10 +79,17 @@ export default function ScanPhoto({ meal, q }) {
         </div>
       )}
 
-      {error && <p className="form-error" role="alert">{error}</p>}
+      {askCode ? (
+        <form className="card stack" onSubmit={saveCode}>
+          <p>L'analyse photo est réservée au propriétaire de l'app. Entre ton code d'accès : il sera retenu sur ce téléphone.</p>
+          <TextField id="access-code" label="Code d'accès" type="password" autoComplete="current-password" value={code}
+            onChange={e => setCode(e.target.value)} error={error ?? undefined} />
+          <Button type="submit" block disabled={!code.trim()}>Valider et analyser</Button>
+        </form>
+      ) : error && <p className="form-error" role="alert">{error}</p>}
 
       <div className="stack">
-        {preview && <Button size="lg" block loading={busy} onClick={analyse}>{busy ? "Analyse… (jusqu'à 1 min)" : 'Analyser le plat'}</Button>}
+        {preview && !askCode && <Button size="lg" block loading={busy} onClick={analyse}>{busy ? "Analyse… (jusqu'à 1 min)" : 'Analyser le plat'}</Button>}
         <div className="add-actions">
           <Button variant={preview ? 'secondary' : 'primary'} disabled={busy} onClick={() => camRef.current.click()}>
             <Camera size={18} aria-hidden="true" /> {preview ? 'Reprendre' : 'Appareil photo'}

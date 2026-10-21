@@ -22,6 +22,15 @@ export { expect }
 // Users created by *this* worker; afterAll deletes only these (a global sweep would delete another
 // worker's users mid-test).
 const created = []
+export const track = id => id && created.push(id) // users the app created by itself (anonymous)
+
+export async function sessionUserId(page) {
+  return page.evaluate(() => {
+    const k = Object.keys(localStorage).find(k => /^sb-.*-auth-token$/.test(k))
+    return k ? JSON.parse(localStorage.getItem(k))?.user?.id ?? null : null
+  })
+}
+
 export async function cleanupUsers() {
   for (const id of created.splice(0)) {
     const { data: files } = await admin().storage.from('photos').list(id)

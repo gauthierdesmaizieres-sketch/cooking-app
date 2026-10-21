@@ -1,11 +1,12 @@
-// S19 Profil (slice: account only — sign out, delete account)
+// S19 Profil (slice: goals, access code, delete account). The account is anonymous: no sign-out (it would lose it).
 import { useState } from 'react'
 import { BottomSheet, Button } from '../ui.jsx'
-import { deleteAccount, signOut } from '../data.js'
+import { deleteAccount, getAccessCode, setAccessCode } from '../data.js'
 import { go } from '../App.jsx'
 
-export default function Profile({ email }) {
+export default function Profile({ notify }) {
   const [confirm, setConfirm] = useState(false)
+  const [hasCode, setHasCode] = useState(() => !!getAccessCode())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
 
@@ -13,7 +14,7 @@ export default function Profile({ email }) {
     setBusy(true)
     setError(false)
     try {
-      await deleteAccount() // auth listener in App sends us back to the login screen
+      await deleteAccount() // auth listener in App starts a fresh account
     } catch {
       setError(true)
       setBusy(false)
@@ -24,14 +25,21 @@ export default function Profile({ email }) {
     <div className="page">
       <h1>Profil</h1>
       <section className="card stack">
-        <p className="muted">Connecté avec</p>
-        <p>{email}</p>
-        <Button variant="secondary" onClick={signOut}>Se déconnecter</Button>
+        <p className="muted">Ton compte</p>
+        <p>Il est lié à ce navigateur, sans e-mail ni mot de passe. Si tu effaces les données de Chrome ou changes de téléphone, ton journal sera perdu.</p>
       </section>
       <section className="card stack">
         <p className="muted">Objectif, poids, activité</p>
         <Button variant="secondary" onClick={() => go('/goals')}>Modifier mes objectifs</Button>
       </section>
+      {hasCode && (
+        <section className="card stack">
+          <p className="muted">Analyse photo</p>
+          <Button variant="secondary" onClick={() => { setAccessCode(null); setHasCode(false); notify?.("Code d'accès oublié sur ce téléphone") }}>
+            Oublier le code d'accès
+          </Button>
+        </section>
+      )}
       <Button variant="ghost" onClick={() => setConfirm(true)}>Supprimer mon compte</Button>
       <p className="muted credits">
         Valeurs nutritionnelles : <a href="https://ciqual.anses.fr" target="_blank" rel="noreferrer">Anses. 2025. Table de composition nutritionnelle des aliments Ciqual</a> (Licence Ouverte) ·

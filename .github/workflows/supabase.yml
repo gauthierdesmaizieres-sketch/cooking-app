@@ -1,12 +1,13 @@
 # Deploys the backend to the production Supabase project: schema + data migrations, edge functions,
-# the Gemini key, and the auth redirect URLs for the GitHub Pages site. Runs from GitHub, so it can be
-# started from a phone (Actions -> supabase -> Run workflow).
+# the Gemini key and access code, and auth settings (anonymous accounts, site URL). Runs from GitHub, so it
+# can be started from a phone (Actions -> supabase -> Run workflow).
 #
 # Repo settings -> Secrets and variables -> Actions:
 #   variable SUPABASE_PROJECT_REF   (the xxxx of supabase.com/dashboard/project/xxxx)
 #   secret   SUPABASE_ACCESS_TOKEN  (supabase.com/dashboard/account/tokens)
 #   secret   SUPABASE_DB_PASSWORD   (chosen when creating the project)
 #   secret   GEMINI_API_KEY         (aistudio.google.com/apikey)
+#   secret   APP_ACCESS_CODE        (any code you choose; asked once by the app before the first photo analysis)
 name: supabase
 on:
   workflow_dispatch:
@@ -27,21 +28,25 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - name: Check settings
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          APP_ACCESS_CODE: ${{ secrets.APP_ACCESS_CODE }}
         run: |
-          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD REF; do [ -n "${!v}" ] || { echo "::error::$v is not set (see the top of this file)"; exit 1; }; done
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD REF GEMINI_API_KEY APP_ACCESS_CODE; do
+            [ -n "${!v}" ] || { echo "::error::$v is not set (see the top of this file)"; exit 1; }
+          done
       - run: supabase link --project-ref "$REF"
       - run: supabase db push --include-all
       - run: supabase functions deploy --project-ref "$REF"
-      - name: Gemini key for scan-photo
-        env: { GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}' }
+      - name: Function secrets (Gemini key, access code)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          APP_ACCESS_CODE: ${{ secrets.APP_ACCESS_CODE }}
+        run: supabase secrets set --project-ref "$REF" GEMINI_API_KEY="$GEMINI_API_KEY" APP_ACCESS_CODE="$APP_ACCESS_CODE" AI_PROVIDER=gemini
+      - name: Auth -> anonymous accounts, Pages site URL
         run: |
-          [ -n "$GEMINI_API_KEY" ] || { echo "::error::GEMINI_API_KEY is not set"; exit 1; }
-          supabase secrets set --project-ref "$REF" GEMINI_API_KEY="$GEMINI_API_KEY" AI_PROVIDER=gemini
-      - name: Auth -> Pages site URL
-        run: |
-          # Email templates stay Supabase's defaults: the free plan refuses custom ones without your own SMTP.
-          jq -n --arg url "$SITE_URL" '{ site_url: $url, uri_allow_list: $url }' > auth.json
+          jq -n --arg url "$SITE_URL" '{ external_anonymous_users_enabled: true, site_url: $url, uri_allow_list: $url }' > auth.json
           code=$(curl -sS -o resp.json -w '%{http_code}' -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data @auth.json)
           if [ "$code" -ge 300 ]; then echo "::error::Supabase auth config refused ($code): $(cat resp.json)"; exit 1; fi
-          echo "Site URL set to $SITE_URL"
+          echo "Anonymous accounts on, site URL $SITE_URL"

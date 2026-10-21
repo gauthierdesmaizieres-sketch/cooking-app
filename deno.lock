@@ -123,6 +123,7 @@
         "npm:lucide-react@^1.59.0",
         "npm:react-dom@^19.3.1",
         "npm:react@^19.3.1",
+        "npm:vite-plugin-pwa@2",
         "npm:vite@^8.3.4"
       ]
     }

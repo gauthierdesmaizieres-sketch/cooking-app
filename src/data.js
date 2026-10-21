@@ -79,14 +79,14 @@ async function shrink(file) {
   }
 }
 
-// Returns { scan_id, items }. Throws Error(code): not-image | limit | refused | ai | network
+// Returns { scan_id, items }. Throws Error(code): not-image | code (wrong access code) | limit | refused | ai | network
 export async function scanPhoto(file) {
   if (!file?.type?.startsWith('image/')) throw new Error('not-image')
   const blob = await shrink(file)
   const path = `${await userId()}/${crypto.randomUUID()}.jpg`
   const up = await supabase.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' })
   if (up.error) throw new Error('network')
-  const { data, error } = await supabase.functions.invoke('scan-photo', { body: { photo_path: path } })
+  const { data, error } = await supabase.functions.invoke('scan-photo', { body: { photo_path: path }, headers: { 'x-app-code': getAccessCode() } })
   if (error) {
     const body = await error.context?.json?.().catch(() => null)
     throw new Error(body?.error ?? 'network')
@@ -103,12 +103,18 @@ export async function setScanStatus(id, status) {
   must(await supabase.from('photo_scans').update({ status }).eq('id', id))
 }
 
-export async function signIn(email) {
-  must(await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } })) // app may live under a sub-path (GitHub Pages)
+// No email: the first launch creates an anonymous account, kept by the browser like any session.
+export async function startAnonymous() {
+  must(await supabase.auth.signInAnonymously())
 }
 
-export async function signOut() {
-  await supabase.auth.signOut()
+// The owner's access code for the photo AI (scan-photo checks it), remembered on this phone.
+const CODE_KEY = 'cooking-app:access-code'
+export function getAccessCode() {
+  try { return localStorage.getItem(CODE_KEY) ?? '' } catch { return '' }
+}
+export function setAccessCode(code) {
+  try { code ? localStorage.setItem(CODE_KEY, code) : localStorage.removeItem(CODE_KEY) } catch { /* private mode */ }
 }
 
 export async function deleteAccount() {

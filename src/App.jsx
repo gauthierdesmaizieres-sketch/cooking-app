@@ -15,7 +15,7 @@ import Cook from './screens/Cook.jsx'
 import Onboarding from './screens/Onboarding.jsx'
 import { getActiveGoal } from './data.js'
 import Stub from './screens/Stub.jsx'
-import Login from './screens/Login.jsx'
+import Welcome from './screens/Welcome.jsx'
 import Profile from './screens/Profile.jsx'
 import { supabase } from './supabase.js'
 
@@ -44,11 +44,7 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
-    // The email link may have been opened elsewhere (Gmail's browser): re-read the stored session on return.
-    const back = () => document.visibilityState === 'visible' &&
-      supabase.auth.getSession().then(({ data: d }) => setSession(s => (s?.access_token === d.session?.access_token ? s : d.session)))
-    document.addEventListener('visibilitychange', back)
-    return () => { data.subscription.unsubscribe(); document.removeEventListener('visibilitychange', back) }
+    return () => data.subscription.unsubscribe()
   }, [])
   const uid = session?.user.id
   useEffect(() => {
@@ -89,12 +85,12 @@ export default function App() {
     case 'cook': page = <Cook recipeId={param} {...props} />; tab = null; break
     case 'goals': page = <Onboarding {...props} />; tab = null; break
     case 'progress': page = <Stub title="Progrès" ids="S18" />; break
-    case 'profile': page = <Profile email={session?.user.email} />; break
+    case 'profile': page = <Profile {...props} />; break
     default: page = <Diary {...props} />; tab = 'diary'
   }
 
   if (session === undefined) return null
-  if (!session) return <div className="app"><main className="app-main"><Login /></main></div>
+  if (!session) return <div className="app"><main className="app-main"><Welcome /></main></div>
   if (hasGoal === undefined) return null
   if (!hasGoal) {
     return <div className="app"><main className="app-main"><Onboarding firstRun onDone={() => { setHasGoal(true); go('/diary') }} /></main></div>

@@ -12,10 +12,22 @@ const GEMINI_FALLBACK = 'gemini-3.5-flash-lite'
 const DAILY_LIMIT = Number(Deno.env.get('SCAN_DAILY_LIMIT') ?? 30)
 const MAX_BYTES = 5 * 1024 * 1024
 const MEDIA = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' } as const
+// Accounts are anonymous (anyone can get one), so the paid/quota'd AI call also needs the owner's access code.
+// Unset (local dev) = no check.
+const ACCESS_CODE = Deno.env.get('APP_ACCESS_CODE') ?? ''
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-app-code',
+}
+
+// Compare SHA-256 digests in constant time so the code can't be guessed character by character.
+async function codeOk(given: string) {
+  const h = async (s: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))
+  const [a, b] = await Promise.all([h(given), h(ACCESS_CODE)])
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i]
+  return diff === 0
 }
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
@@ -134,6 +146,7 @@ Deno.serve(async req => {
   })
   const { data: { user } } = await userClient.auth.getUser()
   if (!user) return json({ error: 'auth' }, 401)
+  if (ACCESS_CODE && !(await codeOk(req.headers.get('x-app-code') ?? ''))) return json({ error: 'code' }, 403)
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
   const body = await req.json().catch(() => null)
