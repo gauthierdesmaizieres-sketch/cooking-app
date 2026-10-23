@@ -1,11 +1,11 @@
-# Cooking App
+# Safran
 
 Personal PWA (French UI) for a single user on an Android phone: food diary with calorie/macro goals, photo
 analysis of a plate (Gemini, Claude optional), barcode lookup (Open Food Facts), food search (Ciqual 2025),
 home-made dishes with cook mode. Built as a clean-room rebuild of YAZIO/MyFitnessPal features
 (`replica/recon.md`); never copy their code, assets or copy.
 
-Live: https://gauthierdesmaizieres-sketch.github.io/cooking-app/ — repo `gauthierdesmaizieres-sketch/cooking-app` (public).
+Live: https://gauthierdesmaizieres-sketch.github.io/safran/ — repo `gauthierdesmaizieres-sketch/safran` (public).
 
 ## Stack
 - Front: React 19 + Vite 8, plain CSS with design tokens (`replica/design/tokens.json` -> `tokens.css`,
